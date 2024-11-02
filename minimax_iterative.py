@@ -1,4 +1,3 @@
-import math
 import copy
 
 class Palankuzhi:
@@ -11,14 +10,12 @@ class Palankuzhi:
 
     def check_for_win(self, simulate=False):
         coins_on_side = [sum(self.board[0]), sum(self.board[1])]
-
         if coins_on_side[0] == 0 or coins_on_side[1] == 0:
             if not simulate:
                 # Collect remaining coins
                 self.player_coins[0] += coins_on_side[0]
                 self.player_coins[1] += coins_on_side[1]
                 self.board = [[0]*7, [0]*7]  # Empty the board
-
                 if self.player_coins[0] > self.player_coins[1]:
                     print("You win!")
                 elif self.player_coins[0] < self.player_coins[1]:
@@ -98,14 +95,11 @@ def iterative_minimax(game, max_depth, player_id):
     root_node = {
         'game': game.copy(),
         'depth': 0,
-        'alpha': -math.inf,
-        'beta': math.inf,
         'maximizing_player': True,
-        'player_id': player_id,
         'value': None,
-        'best_move': None,
         'move': None,
         'parent': None,
+        'children': [],
         'expanded': False
     }
     stack.append(root_node)
@@ -121,29 +115,21 @@ def iterative_minimax(game, max_depth, player_id):
         if node['expanded']:
             # Backtracking
             if node['maximizing_player']:
-                node['value'] = -math.inf
+                node['value'] = max(child['value'] for child in node['children'])
                 for child in node['children']:
-                    if child['value'] > node['value']:
-                        node['value'] = child['value']
+                    if child['value'] == node['value']:
                         node['best_move'] = child['move']
-                if node['parent']:
-                    node['parent']['alpha'] = max(node['parent']['alpha'], node['value'])
-                    if node['parent']['alpha'] >= node['parent']['beta']:
-                        continue
+                        break
             else:
-                node['value'] = math.inf
+                node['value'] = min(child['value'] for child in node['children'])
                 for child in node['children']:
-                    if child['value'] < node['value']:
-                        node['value'] = child['value']
+                    if child['value'] == node['value']:
                         node['best_move'] = child['move']
-                if node['parent']:
-                    node['parent']['beta'] = min(node['parent']['beta'], node['value'])
-                    if node['parent']['beta'] <= node['parent']['alpha']:
-                        continue
+                        break
         else:
             # Expand node
             node['expanded'] = True
-            valid_moves = node['game'].valid_moves(node['player_id'] if node['maximizing_player'] else 1 - node['player_id'])
+            valid_moves = node['game'].valid_moves(player_id if node['maximizing_player'] else 1 - player_id)
 
             if not valid_moves:
                 node['value'] = node['game'].get_score(player_id)
@@ -155,28 +141,27 @@ def iterative_minimax(game, max_depth, player_id):
 
             for move in valid_moves:
                 child_game = node['game'].copy()
-                current_player_id = node['player_id'] if node['maximizing_player'] else 1 - node['player_id']
-                child_game.move_coins(current_player_id, current_player_id, move)
+                current_player = player_id if node['maximizing_player'] else 1 - player_id
+                child_game.move_coins(current_player, current_player, move)
 
                 child_node = {
                     'game': child_game,
                     'depth': node['depth'] + 1,
-                    'alpha': node['alpha'],
-                    'beta': node['beta'],
                     'maximizing_player': not node['maximizing_player'],
-                    'player_id': node['player_id'],
                     'value': None,
                     'move': move,
                     'parent': node,
+                    'children': [],
                     'expanded': False
                 }
                 node['children'].append(child_node)
                 stack.append(child_node)  # Add child to stack
 
+    # The best move is stored in root_node['best_move']
     return root_node['best_move']
 
 def ai_move(game, player_id):
-    max_depth = 5  # Adjust for difficulty
+    max_depth = 3  # Adjust for difficulty
     best_move = iterative_minimax(game, max_depth, player_id)
     return best_move
 
@@ -187,6 +172,12 @@ def main():
     while True:
         if current_player == 0:
             # Human's turn
+            if not game.valid_moves(0):
+                print("No valid moves available for you.")
+                if game.check_for_win():
+                    break
+                current_player = 1 - current_player
+                continue
             valid = False
             while not valid:
                 try:
@@ -204,6 +195,12 @@ def main():
         else:
             # AI's turn
             print("\nAI is thinking...")
+            if not game.valid_moves(1):
+                print("AI has no valid moves.")
+                if game.check_for_win():
+                    break
+                current_player = 1 - current_player
+                continue
             move = ai_move(game, 1)
             if move is not None:
                 print(f"AI selects pit {move + 1}.")
